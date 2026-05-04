@@ -3,18 +3,16 @@ import torch.nn as nn
 
 
 class GAM(nn.Module):
-    """
-    GAM: Global Attention Mechanism (2021)
-    输入/输出: (B, C, H, W) -> (B, C, H, W)
+    """GAM: Global Attention Mechanism (2021) 输入/输出: (B, C, H, W) -> (B, C, H, W).
 
     适配说明：
-      - 你的 parse_model 会注入 channels=C 到 __init__ 的第一个参数，
+    - 你的 parse_model 会注入 channels=C 到 __init__ 的第一个参数，
         所以这里必须 __init__(channels, ...)
 
     典型 GAM 流程（顺序：Channel -> Spatial）：
-      1) Channel Attention（跨维交互）：把空间展平，用 MLP 在通道维上建模全局依赖
-      2) Spatial Attention：用卷积在空间上建模位置相关性
-      out = x * Mc * Ms  （逐元素相乘，广播）
+    1) Channel Attention（跨维交互）：把空间展平，用 MLP 在通道维上建模全局依赖
+    2) Spatial Attention：用卷积在空间上建模位置相关性
+    out = x * Mc * Ms （逐元素相乘，广播）
     """
 
     def __init__(self, channels: int, reduction: int = 4, spatial_kernel: int = 7):
@@ -22,7 +20,7 @@ class GAM(nn.Module):
         Args:
             channels: 输入通道数 C（parse_model 注入）
             reduction: 通道分支 MLP 压缩比（GAM 常用 4）
-            spatial_kernel: 空间分支卷积核大小（常用 7）
+            spatial_kernel: 空间分支卷积核大小（常用 7）.
         """
         super().__init__()
         assert channels > 0
@@ -49,15 +47,19 @@ class GAM(nn.Module):
             nn.Conv2d(channels, channels // reduction if channels // reduction > 0 else 1, kernel_size=1, bias=False),
             nn.BatchNorm2d(channels // reduction if channels // reduction > 0 else 1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(channels // reduction if channels // reduction > 0 else 1, channels, kernel_size=spatial_kernel, padding=pad, bias=False),
+            nn.Conv2d(
+                channels // reduction if channels // reduction > 0 else 1,
+                channels,
+                kernel_size=spatial_kernel,
+                padding=pad,
+                bias=False,
+            ),
             nn.BatchNorm2d(channels),
         )
         self.spatial_sigmoid = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
+        """X: (B, C, H, W)."""
         B, C, H, W = x.shape
         N = H * W
 
