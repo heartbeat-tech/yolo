@@ -3,21 +3,20 @@ import torch.nn as nn
 
 
 class SE(nn.Module):
-    """
-    Squeeze-and-Excitation (SE) Block
-    输入/输出: (B, C, H, W) -> (B, C, H, W)
+    """Squeeze-and-Excitation (SE) Block 输入/输出: (B, C, H, W) -> (B, C, H, W).
 
     核心步骤：
-      1) Squeeze: 全局平均池化，把空间信息压缩成通道描述子 (B,C,1,1)
-      2) Excitation: 两层 MLP（用 1x1 conv 等价实现）生成通道权重 (B,C,1,1)
-      3) Scale: 通道权重与原特征逐元素相乘（广播到 H,W）
+    1) Squeeze: 全局平均池化，把空间信息压缩成通道描述子 (B,C,1,1)
+    2) Excitation: 两层 MLP（用 1x1 conv 等价实现）生成通道权重 (B,C,1,1)
+    3) Scale: 通道权重与原特征逐元素相乘（广播到 H,W）
     """
+
     def __init__(self, channels: int, reduction: int = 16, *args, **kwargs):  # ⭐ 关键修改
         """
         Args:
             channels: 输入特征通道数 C
             reduction: 压缩比 r，hidden = C // r（常用 16）
-            *args, **kwargs: 接收YOLO可能传递的额外参数（忽略）
+            *args, **kwargs: 接收YOLO可能传递的额外参数（忽略）.
         """
         super().__init__()
         assert channels > 0
@@ -36,9 +35,7 @@ class SE(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
+        """X: (B, C, H, W)."""
         # ---- Squeeze ----
         z = self.gap(x)
 

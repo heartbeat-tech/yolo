@@ -4,9 +4,8 @@ import torch.nn.functional as F
 
 
 class ACmix(nn.Module):
-    """
-    ACmix (CVPR 2022): shared 1x1 projections + (local) self-attn branch + shift/conv branch, then fuse by alpha/beta.
-    Input/Output: (B, C, H, W) -> (B, C, H, W)
+    """ACmix (CVPR 2022): shared 1x1 projections + (local) self-attn branch + shift/conv branch, then fuse by
+    alpha/beta. Input/Output: (B, C, H, W) -> (B, C, H, W).
 
     工程说明（适合 YOLO 缝合）：
     - 为了避免全局注意力 O((HW)^2) 爆显存，这里实现的是 “局部窗口(k×k)注意力”，复杂度 ~ O(C*k^2*H*W)。
@@ -41,15 +40,13 @@ class ACmix(nn.Module):
         self.proj = nn.Conv2d(channels, channels, kernel_size=1, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
+        """X: (B, C, H, W)."""
         B, C, H, W = x.shape
         L = H * W
 
         # ========== ① 共享 1x1 投影 ==========
-        qkv = self.qkv(x)                 # (B, 3C, H, W)
-        q, k, v = qkv.chunk(3, dim=1)     # each: (B, C, H, W)
+        qkv = self.qkv(x)  # (B, 3C, H, W)
+        q, k, v = qkv.chunk(3, dim=1)  # each: (B, C, H, W)
 
         # 统一转成 multi-head 视角（便于后续计算）
         # q_flat: (B, h, d, L)
@@ -62,11 +59,11 @@ class ACmix(nn.Module):
 
         # ========== ② Attention 分支（图下半部分：Q/K/V -> Attention Operation -> Concatenation） ==========
         # logits: (B, h, k^2, L)  （对每个位置，只在 k^2 邻域里 softmax）
-        logits = (q_flat.unsqueeze(3) * k_patch).sum(dim=2)     # sum over d
-        attn = F.softmax(logits, dim=2)                         # (B, h, k^2, L)
+        logits = (q_flat.unsqueeze(3) * k_patch).sum(dim=2)  # sum over d
+        attn = F.softmax(logits, dim=2)  # (B, h, k^2, L)
 
         # attn_out: (B, h, d, L) -> (B, C, H, W)
-        attn_out = (attn.unsqueeze(2) * v_patch).sum(dim=3)     # sum over k^2
+        attn_out = (attn.unsqueeze(2) * v_patch).sum(dim=3)  # sum over k^2
         attn_out = attn_out.view(B, C, H, W)
 
         # ========== ③ Conv(shift) 分支（图上半部分：FC -> Shift Operation -> Concatenation） ==========
@@ -75,10 +72,10 @@ class ACmix(nn.Module):
 
         # conv_out: (B, h, d, L) -> (B, C, H, W)
         # 这里 kernel 在 d 维上广播（同一 head 的各通道共享同一组 k^2 权重），符合“shift+sum”的直觉实现
-        conv_out = (kernel.unsqueeze(2) * v_patch).sum(dim=3)   # sum over k^2
+        conv_out = (kernel.unsqueeze(2) * v_patch).sum(dim=3)  # sum over k^2
         conv_out = conv_out.view(B, C, H, W)
 
         # ========== ④ 融合（图右侧：xα、xβ 再相加） ==========
-        out = self.alpha * conv_out + self.beta * attn_out      # (B, C, H, W)
-        out = self.proj(out)                                    # (B, C, H, W)
+        out = self.alpha * conv_out + self.beta * attn_out  # (B, C, H, W)
+        out = self.proj(out)  # (B, C, H, W)
         return out
