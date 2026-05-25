@@ -1,7 +1,8 @@
 import multiprocessing
+
 from ultralytics import YOLO
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     # 加载模型
@@ -20,4 +21,4 @@ if __name__ == '__main__':
         name="exp",
         exist_ok=True,
     )
-    print(f"预测结果保存在: runs/detect/predict_test/exp")
+    print("预测结果保存在: runs/detect/predict_test/exp")

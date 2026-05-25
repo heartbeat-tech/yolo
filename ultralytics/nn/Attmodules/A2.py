@@ -4,17 +4,15 @@ import torch.nn.functional as F
 
 
 class A2(nn.Module):
-    """
-    A2-Nets: Double Attention Block (NeurIPS 2018)
-    输入/输出: (B, C, H, W) -> (B, C, H, W)
+    """A2-Nets: Double Attention Block (NeurIPS 2018) 输入/输出: (B, C, H, W) -> (B, C, H, W).
 
     适配说明：
-      - 你的 parse_model 会把 channels=C 自动注入到构造函数第一个参数，
+    - 你的 parse_model 会把 channels=C 自动注入到构造函数第一个参数，
         所以这里 __init__(channels, ...) 必须以 channels 开头。
 
     核心思想：Gather + Distribute（双注意力）
-      1) Gather：从全局空间 (H*W) 里“聚合”出一组全局特征描述子
-      2) Distribute：再把这些全局描述子按位置需要“分配”回每个位置
+    1) Gather：从全局空间 (H*W) 里“聚合”出一组全局特征描述子
+    2) Distribute：再把这些全局描述子按位置需要“分配”回每个位置
     """
 
     def __init__(self, channels: int, reduction: int = 4, L: int = 32):
@@ -22,7 +20,7 @@ class A2(nn.Module):
         Args:
             channels: 输入通道数 C（由 parse_model 注入）
             reduction: 压缩比，inter = max(C//reduction, L)
-            L: inter 的最小值（防止通道太小）
+            L: inter 的最小值（防止通道太小）.
         """
         super().__init__()
         assert channels > 0
@@ -42,10 +40,8 @@ class A2(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
-        B, C, H, W = x.shape
+        """X: (B, C, H, W)."""
+        B, _C, H, W = x.shape
         N = H * W
 
         # -------- Step 1) 生成三路特征 --------
