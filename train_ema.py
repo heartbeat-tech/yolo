@@ -1,8 +1,11 @@
 """Ablation: YOLOv11s with EMA attention only (standard 3-scale head)."""
+
 import multiprocessing
 import random
+
 import numpy as np
 import torch
+
 from ultralytics import YOLO
 
 
@@ -14,13 +17,13 @@ def set_seed(seed=42):
     torch.cuda.manual_seed_all(seed)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     multiprocessing.freeze_support()
     set_seed(42)
     torch.cuda.empty_cache()
 
     print(f"[INFO] GPU: {torch.cuda.get_device_name(0)}")
-    print(f"[INFO] VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024 ** 3:.2f} GB")
+    print(f"[INFO] VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
 
     model = YOLO("ultralytics/cfg/models/11/yolo11s-ema.yaml")
     model.load("yolo11s.pt")
@@ -52,6 +55,6 @@ if __name__ == '__main__':
         save=True,
     )
 
-    print(f"\n[OK] EMA-only training complete!")
+    print("\n[OK] EMA-only training complete!")
     print(f"[RESULT] mAP50: {results.results_dict['metrics/mAP50(B)']:.4f}")
     print(f"[RESULT] mAP50-95: {results.results_dict['metrics/mAP50-95(B)']:.4f}")
