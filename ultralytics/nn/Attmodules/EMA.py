@@ -1,12 +1,11 @@
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import Optional
 
 
 class EMA(nn.Module):
-    """
-    Efficient Multi-Scale Attention (EMA)
+    """Efficient Multi-Scale Attention (EMA).
 
     核心：
     - 通道分组：把 (B, C, H, W) reshape 成 (B*g, C/g, H, W)，等价“把组当作 batch 扩展”
@@ -18,7 +17,7 @@ class EMA(nn.Module):
     - 输出：xg * s -> reshape 回 (B, C, H, W)
     """
 
-    def __init__(self, channels: int, groups: int = 32, act: Optional[nn.Module] = None):
+    def __init__(self, channels: int, groups: int = 32, act: nn.Module | None = None):
         super().__init__()
         assert channels > 0, "channels must be positive"
         self.channels = channels
@@ -50,9 +49,7 @@ class EMA(nn.Module):
         self.softmax_spatial = nn.Softmax(dim=-1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        return: (B, C, H, W)
+        """x: (B, C, H, W) return: (B, C, H, W).
         """
         b, c, h, w = x.shape
         assert c == self.channels, f"EMA expected {self.channels} channels, got {c}"
