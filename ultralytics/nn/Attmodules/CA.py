@@ -3,14 +3,12 @@ import torch.nn as nn
 
 
 class CA(nn.Module):
-    """
-    Coordinate Attention (CA)
-    输入/输出: (B, C, H, W) -> (B, C, H, W)
+    """Coordinate Attention (CA) 输入/输出: (B, C, H, W) -> (B, C, H, W).
 
     核心思想：
-      - 分别在 H 方向、W 方向做全局池化，得到两条“方向感知”的通道描述
-      - 共享 1x1 变换后再分成两支，生成 Ah(B,C,H,1) 与 Aw(B,C,1,W)
-      - 最终用 Ah 与 Aw 对输入逐元素重标定
+    - 分别在 H 方向、W 方向做全局池化，得到两条“方向感知”的通道描述
+    - 共享 1x1 变换后再分成两支，生成 Ah(B,C,H,1) 与 Aw(B,C,1,W)
+    - 最终用 Ah 与 Aw 对输入逐元素重标定
     """
 
     def __init__(self, channels: int, reduction: int = 32, *args, **kwargs):  # ⭐ 关键修改：加 *args, **kwargs
@@ -18,7 +16,7 @@ class CA(nn.Module):
         Args:
             channels: 输入通道数 C
             reduction: 压缩比，论文常用 32（也可用 16）
-            *args, **kwargs: 接收YOLO可能传递的额外参数（忽略）
+            *args, **kwargs: 接收YOLO可能传递的额外参数（忽略）.
         """
         super().__init__()
         assert channels > 0
@@ -36,10 +34,8 @@ class CA(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
-        b, c, h, w = x.shape
+        """X: (B, C, H, W)."""
+        _b, _c, h, w = x.shape
 
         # ---- Step 1: 分方向池化（保留坐标信息）----
         # x_h: (B, C, H, 1)  沿 W 平均

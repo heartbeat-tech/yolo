@@ -1,25 +1,26 @@
+from __future__ import annotations
+
 import math
+
 import torch
 import torch.nn as nn
 
 
 class ECA(nn.Module):
-    """
-    ECA (Efficient Channel Attention)
-    输入/输出: (B, C, H, W) -> (B, C, H, W)
+    """ECA (Efficient Channel Attention) 输入/输出: (B, C, H, W) -> (B, C, H, W).
 
     核心思想：
-      - 先 GAP 得到通道描述子 (B, C, 1, 1)
-      - 不做 SE 的两层 MLP，而是对通道维做 1D 卷积建模局部通道交互
-      - Sigmoid 得到通道权重 (B, C, 1, 1)，再与输入逐通道相乘
+    - 先 GAP 得到通道描述子 (B, C, 1, 1)
+    - 不做 SE 的两层 MLP，而是对通道维做 1D 卷积建模局部通道交互
+    - Sigmoid 得到通道权重 (B, C, 1, 1)，再与输入逐通道相乘
     """
 
-    def __init__(self, channels: int, k_size: int = None, gamma: int = 2, b: int = 1):
+    def __init__(self, channels: int, k_size: int | None = None, gamma: int = 2, b: int = 1):
         """
         Args:
             channels: 输入通道数 C
             k_size: 1D 卷积核大小（奇数）。若为 None，则按论文自适应计算
-            gamma, b: 自适应核大小的超参数（论文给的默认值常用 gamma=2, b=1）
+            gamma, b: 自适应核大小的超参数（论文给的默认值常用 gamma=2, b=1）.
         """
         super().__init__()
         assert channels > 0
@@ -41,10 +42,8 @@ class ECA(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
-        b, c, h, w = x.shape
+        """X: (B, C, H, W)."""
+        _b, _c, _h, _w = x.shape
 
         # ---- Squeeze ----
         # y: (B, C, 1, 1)
@@ -53,9 +52,9 @@ class ECA(nn.Module):
         # ---- Channel interaction (1D conv on channel dim) ----
         # (B, C, 1, 1) -> squeeze -> (B, C)
         # (B, C) -> unsqueeze to (B, 1, C) for Conv1d
-        y = y.squeeze(-1).squeeze(-1)        # (B, C)
-        y = y.unsqueeze(1)                   # (B, 1, C)
-        y = self.conv1d(y)                   # (B, 1, C)
+        y = y.squeeze(-1).squeeze(-1)  # (B, C)
+        y = y.unsqueeze(1)  # (B, 1, C)
+        y = self.conv1d(y)  # (B, 1, C)
 
         # ---- Gate ----
         # (B, 1, C) -> (B, C, 1, 1)
