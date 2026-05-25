@@ -4,34 +4,32 @@ import torch.nn.functional as F
 
 
 class SK(nn.Module):
-    """
-    SK (Selective Kernel) / SKConv
-    输入/输出: (B, C, H, W) -> (B, C, H, W)
+    """SK (Selective Kernel) / SKConv 输入/输出: (B, C, H, W) -> (B, C, H, W).
 
     适配说明：
-      - 你的 parse_model 会自动注入 channels=C 作为第一个构造参数，
+    - 你的 parse_model 会自动注入 channels=C 作为第一个构造参数，
         所以这里 __init__(channels, ...) 必须以 channels 开头。
 
     经典 SK 单元流程：Split -> Fuse -> Select
-      1) Split: 多分支卷积(不同kernel)提取不同感受野特征
-      2) Fuse: 分支特征求和 + GAP 得到全局描述
-      3) Select: 用 softmax 在“分支维”上生成权重，对各分支加权融合
+    1) Split: 多分支卷积(不同kernel)提取不同感受野特征
+    2) Fuse: 分支特征求和 + GAP 得到全局描述
+    3) Select: 用 softmax 在“分支维”上生成权重，对各分支加权融合
     """
 
     def __init__(
         self,
-        channels: int,                 # C（由 parse_model 注入）
-        kernels=(3, 5),                # 多分支卷积核大小（常用 3/5 或 3/7）
-        reduction: int = 16,           # 压缩比
-        L: int = 32,                   # bottleneck 最小维度（论文中常用）
-        groups: int = 1,               # 分组卷积（想更轻量可设为 channels 做 depthwise，但需谨慎）
+        channels: int,  # C（由 parse_model 注入）
+        kernels=(3, 5),  # 多分支卷积核大小（常用 3/5 或 3/7）
+        reduction: int = 16,  # 压缩比
+        L: int = 32,  # bottleneck 最小维度（论文中常用）
+        groups: int = 1,  # 分组卷积（想更轻量可设为 channels 做 depthwise，但需谨慎）
         act: str = "silu",
     ):
         super().__init__()
         assert channels > 0
         self.channels = channels
         self.kernels = list(kernels)
-        self.M = len(self.kernels)     # 分支数 M
+        self.M = len(self.kernels)  # 分支数 M
 
         # 激活函数
         if act.lower() == "silu":
@@ -71,9 +69,7 @@ class SK(nn.Module):
         self.fc_branches = nn.ModuleList([nn.Conv2d(d, channels, kernel_size=1, bias=True) for _ in range(self.M)])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
+        """X: (B, C, H, W)."""
         # ---- Split ----
         # feats: list，每个元素 (B, C, H, W)
         feats = [br(x) for br in self.branches]

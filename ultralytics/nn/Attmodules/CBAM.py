@@ -3,14 +3,12 @@ import torch.nn as nn
 
 
 class CBAM(nn.Module):
-    """
-    CBAM: Convolutional Block Attention Module (ECCV 2018)
-    输入/输出: (B, C, H, W) -> (B, C, H, W)
+    """CBAM: Convolutional Block Attention Module (ECCV 2018) 输入/输出: (B, C, H, W) -> (B, C, H, W).
 
     CBAM = Channel Attention + Spatial Attention（串联）
-      1) Channel Attention: 生成 (B,C,1,1) 的通道权重
-      2) Spatial Attention: 生成 (B,1,H,W) 的空间权重
-      out = x * Mc * Ms（逐元素相乘，带广播）
+    1) Channel Attention: 生成 (B,C,1,1) 的通道权重
+    2) Spatial Attention: 生成 (B,1,H,W) 的空间权重
+    out = x * Mc * Ms（逐元素相乘，带广播）
     """
 
     def __init__(self, channels: int, reduction: int = 16, kernel_size: int = 7):
@@ -18,7 +16,7 @@ class CBAM(nn.Module):
         Args:
             channels: 输入通道数 C（由 parse_model 注入，必须放第一个）
             reduction: 通道注意力 MLP 压缩比（常用 16）
-            kernel_size: 空间注意力卷积核大小（论文常用 7）
+            kernel_size: 空间注意力卷积核大小（论文常用 7）.
         """
         super().__init__()
         assert channels > 0
@@ -48,10 +46,8 @@ class CBAM(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
-        B, C, H, W = x.shape
+        """X: (B, C, H, W)."""
+        _B, _C, _H, _W = x.shape
 
         # =========================================================
         # 1) Channel Attention
@@ -71,8 +67,8 @@ class CBAM(nn.Module):
         # 2) Spatial Attention
         # =========================================================
         # 通道维做 avg/max： (B,C,H,W)->(B,1,H,W)
-        avg_c = x_c.mean(dim=1, keepdim=True)            # (B,1,H,W)
-        max_c = x_c.max(dim=1, keepdim=True)[0]          # (B,1,H,W)
+        avg_c = x_c.mean(dim=1, keepdim=True)  # (B,1,H,W)
+        max_c = x_c.max(dim=1, keepdim=True)[0]  # (B,1,H,W)
 
         # concat: (B,2,H,W)
         s = torch.cat([avg_c, max_c], dim=1)
