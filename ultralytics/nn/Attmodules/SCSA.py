@@ -1,14 +1,12 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 def _safe_gn_groups(C: int, prefer: int = 4) -> int:
-    """
-    论文里写 GroupNorm-4，这里做个工程兼容：
-    - 若 C % 4 == 0，用 4
-    - 否则用一个能整除 C 的最大组数（<=prefer），再不行退化为 1
+    """论文里写 GroupNorm-4，这里做个工程兼容： - 若 C % 4 == 0，用 4 - 否则用一个能整除 C 的最大组数（<=prefer），再不行退化为 1.
     """
     if C % prefer == 0:
         return prefer
@@ -19,12 +17,9 @@ def _safe_gn_groups(C: int, prefer: int = 4) -> int:
 
 
 class MS_DWConv1d(nn.Module):
+    """论文图右侧的 MS-DWConv1d(k1,k2,k3,k4)： - 输入: (B, C, L) - 输出: (B, C, L) - depthwise 1D conv（groups=C）.
     """
-    论文图右侧的 MS-DWConv1d(k1,k2,k3,k4)：
-    - 输入:  (B, C, L)
-    - 输出:  (B, C, L)
-    - depthwise 1D conv（groups=C）
-    """
+
     def __init__(self, channels: int, k: int):
         super().__init__()
         self.dw = nn.Conv1d(channels, channels, kernel_size=k, padding=k // 2, groups=channels, bias=False)
@@ -34,19 +29,17 @@ class MS_DWConv1d(nn.Module):
 
 
 class CA_SHSA(nn.Module):
-    """
-    论文图 PCSA 里的 CA-SHSA（Channel-wise Single-Head Self-Attention）
-    这里按图实现一个“通道维单头自注意力”，注意力在通道维 C 上计算。
+    """论文图 PCSA 里的 CA-SHSA（Channel-wise Single-Head Self-Attention） 这里按图实现一个“通道维单头自注意力”，注意力在通道维 C 上计算。.
 
-    输入:  (B, C, Hp, Wp)
-    过程:
-      - 1x1 DWConv2d 生成 Q/K/V（图中 3 个 DWConv2d 1x1）
-      - reshape 到 (B, C, N) 其中 N=Hp*Wp
-      - Attn = softmax( Q @ K^T )  -> (B, C, C)
-      - Out  = Attn @ V            -> (B, C, N) -> reshape 回 (B,C,Hp,Wp)
+    输入: (B, C, Hp, Wp) 过程:
+    - 1x1 DWConv2d 生成 Q/K/V（图中 3 个 DWConv2d 1x1）
+    - reshape 到 (B, C, N) 其中 N=Hp*Wp
+    - Attn = softmax( Q @ K^T )  -> (B, C, C)
+    - Out  = Attn @ V            -> (B, C, N) -> reshape 回 (B,C,Hp,Wp)
 
-    输出:  (B, C, Hp, Wp)
+    输出: (B, C, Hp, Wp)
     """
+
     def __init__(self, channels: int):
         super().__init__()
         # DWConv2d 1x1（groups=C）：每个通道独立映射（贴合图）
@@ -72,14 +65,11 @@ class CA_SHSA(nn.Module):
 
 
 class SCSA(nn.Module):
-    """
-    SCSA: Spatial and Channel Synergistic Attention
-    年份：2024（论文/预印本提出）
+    """SCSA: Spatial and Channel Synergistic Attention 年份：2024（论文/预印本提出）.
 
     输入/输出: (B, C, H, W) -> (B, C, H, W)
 
-    按论文图实现：
-      Part-1: SMSA（Shared Multi-Semantic Spatial Attention）
+    按论文图实现： Part-1: SMSA（Shared Multi-Semantic Spatial Attention）
         - X AvgPool: 沿 W 平均 -> (B,C,H)
         - Y AvgPool: 沿 H 平均 -> (B,C,W)
         - split（n=4）：按通道分组
@@ -89,7 +79,7 @@ class SCSA(nn.Module):
         - 广播融合：Ms = Ah.unsqueeze(-1) * Aw.unsqueeze(-2) -> (B,C,H,W)
         - X_s = X * Ms
 
-      Part-2: PCSA（Progressive Channel-wise Self-Attention）
+    Part-2: PCSA（Progressive Channel-wise Self-Attention）
         - AvgPool: 压缩到 (Hp,Wp)（论文图中的 H'×W'）
         - GroupNorm-1
         - CA-SHSA（通道单头自注意力）
@@ -99,10 +89,10 @@ class SCSA(nn.Module):
 
     def __init__(
         self,
-        channels: int,                 # 必须第一个参数：匹配你的 parse_model
-        n: int = 4,                    # 论文图 n=4
-        kernels=(3, 5, 7, 9),          # 论文图 (3,5,7,9)
-        pool_hw: int = 7,              # PCSA 的 H'、W'（越小越省算力）
+        channels: int,  # 必须第一个参数：匹配你的 parse_model
+        n: int = 4,  # 论文图 n=4
+        kernels=(3, 5, 7, 9),  # 论文图 (3,5,7,9)
+        pool_hw: int = 7,  # PCSA 的 H'、W'（越小越省算力）
     ):
         super().__init__()
         assert channels > 0
@@ -129,15 +119,13 @@ class SCSA(nn.Module):
 
         # ---- PCSA：AvgPool 到 H'×W' + GN-1 + CA-SHSA ----
         self.pool_hw = int(pool_hw)
-        self.gn1 = nn.GroupNorm(1, channels)   # GroupNorm-1（图中写的）
+        self.gn1 = nn.GroupNorm(1, channels)  # GroupNorm-1（图中写的）
         self.ca_shsa = CA_SHSA(channels)
         self.avgpool = nn.AdaptiveAvgPool2d(1)  # 输出 Mc: (B,C,1,1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
-        B, C, H, W = x.shape
+        """X: (B, C, H, W)."""
+        _B, C, _H, _W = x.shape
         assert C == self.C
 
         # =========================================================
