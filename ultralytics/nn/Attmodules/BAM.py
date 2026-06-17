@@ -3,22 +3,18 @@ import torch.nn as nn
 
 
 class BAM(nn.Module):
-    """
-    BAM: Bottleneck Attention Module (BMVC 2018)
-    输入/输出: (B, C, H, W) -> (B, C, H, W)
+    """BAM: Bottleneck Attention Module (BMVC 2018) 输入/输出: (B, C, H, W) -> (B, C, H, W).
 
     适配说明：
-      - 你的 parse_model 会自动注入 channels=C 作为第一个构造参数，
+    - 你的 parse_model 会自动注入 channels=C 作为第一个构造参数，
         因此 __init__ 必须以 channels 开头。
 
-    BAM = Channel Gate + Spatial Gate，然后融合成一个注意力图 M：
-      M = sigmoid( Mc + Ms )
-      out = x * (1 + M)   # 论文常用 residual gating（可选）
+    BAM = Channel Gate + Spatial Gate，然后融合成一个注意力图 M： M = sigmoid( Mc + Ms ) out = x * (1 + M) # 论文常用 residual gating（可选）
     """
 
     def __init__(
         self,
-        channels: int,        # C（由 parse_model 注入）
+        channels: int,  # C（由 parse_model 注入）
         reduction: int = 16,  # 通道门控的压缩比
         dilations=(1, 2, 4),  # 空间门控的空洞率（论文常用多尺度空洞卷积）
     ):
@@ -34,10 +30,10 @@ class BAM(nn.Module):
         # GAP: (B,C,H,W)->(B,C,1,1)
         # MLP: C -> mid -> C
         self.channel_gate = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),                   # (B,C,1,1)
-            nn.Conv2d(channels, mid, 1, bias=False),   # (B,mid,1,1)
+            nn.AdaptiveAvgPool2d(1),  # (B,C,1,1)
+            nn.Conv2d(channels, mid, 1, bias=False),  # (B,mid,1,1)
             nn.ReLU(inplace=True),
-            nn.Conv2d(mid, channels, 1, bias=False),   # (B,C,1,1)
+            nn.Conv2d(mid, channels, 1, bias=False),  # (B,C,1,1)
         )
 
         # -------------------------
@@ -71,18 +67,16 @@ class BAM(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (B, C, H, W)
-        """
+        """X: (B, C, H, W)."""
         # Channel gate:
         # Mc: (B, C, 1, 1)
         Mc = self.channel_gate(x)
 
         # Spatial gate:
         # Ms: (B, 1, H, W)
-        s = self.spatial_reduce(x)          # (B, sg_mid, H, W)
-        s = self.spatial_convs(s)           # (B, sg_mid, H, W)
-        Ms = self.spatial_out(s)            # (B, 1, H, W)
+        s = self.spatial_reduce(x)  # (B, sg_mid, H, W)
+        s = self.spatial_convs(s)  # (B, sg_mid, H, W)
+        Ms = self.spatial_out(s)  # (B, 1, H, W)
 
         # 融合成注意力图：
         # Mc 广播到 (B,C,H,W)，Ms 广播到 (B,C,H,W)
